@@ -1,0 +1,8 @@
+fastapi
+pydantic
+transformers
+llama-index
+torch
+groq
+python-dotenv
+uvicorn
