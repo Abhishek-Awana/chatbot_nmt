@@ -13,9 +13,11 @@ from llama_index.core import (
     SimpleDirectoryReader,
     StorageContext,
 )
-from llama_index.core.tools import QueryEngineTool
+from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+from llama_index.core.query_engine import RouterQueryEngine
+
 
 app = FastAPI()
 
@@ -41,8 +43,6 @@ translation_tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_418M")
 
 # API keys
 groq_api_key = os.getenv("GROQ_API_KEY")
-llama_api_key = os.getenv("OPENAI_API_KEY")
-
 # Set up LLM and embedding model
 llm = Groq(model="llama3-8b-8192")
 embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
@@ -60,20 +60,23 @@ storage_context.docstore.add_documents(nodes)
 # Create indices for summarization and vector search
 summary_index = SummaryIndex(nodes, storage_context=storage_context)
 vector_index = VectorStoreIndex(nodes, storage_context=storage_context)
+index = VectorStoreIndex.from_documents(documents)
+# query_engine = index.as_query_engine(similarity_top_k=3)
+
 
 # Define query engines for summarization and vector search
-summary_query_engine = summary_index.as_query_engine(response_mode="tree_summarize", use_async=True)
-vector_query_engine = vector_index.as_query_engine(similarity_top_k=3)
+# summary_query_engine = summary_index.as_query_engine(response_mode="tree_summarize", use_async=True)
+# vector_query_engine = vector_index.as_query_engine(similarity_top_k=3)
 
 # Define tools for the query engines
-summary_tool = QueryEngineTool.from_defaults(
-    query_engine=summary_query_engine,
-    description="Useful for summarization of the content."
-)
-vector_tool = QueryEngineTool.from_defaults(
-    query_engine=vector_query_engine,
-    description="Useful for retrieving specific context from the documents."
-)
+# summary_tool = QueryEngineTool.from_defaults(
+#     query_engine=summary_query_engine,
+#     description="Useful for summarization of the content."
+# )
+# vector_tool = QueryEngineTool.from_defaults(
+#     query_engine=vector_query_engine,
+#     description="Useful for retrieving specific context from the documents."
+# )
 
 # Set up RouterQueryEngine to switch between different modes
 # tools = [summary_tool, vector_tool]
@@ -81,6 +84,27 @@ vector_tool = QueryEngineTool.from_defaults(
 #     tools=tools,
 #     default_tool_name="vector_search",
 # )
+
+vector_tool = QueryEngineTool(
+    index.as_query_engine(),
+    metadata=ToolMetadata(
+        name="vector_search",
+        description="Useful for retrieving specific context from the documents."
+    ),
+)
+
+summary_tool = QueryEngineTool(
+    index.as_query_engine(response_mode="tree_summarize", use_async=True),
+    metadata=ToolMetadata(
+        name="summary",
+        description="Useful for summarization of the content."
+    ),
+)
+
+query_engine = RouterQueryEngine.from_defaults(
+    [vector_tool, summary_tool], select_multi=False, verbose=True, llm=llm
+)
+
 
 def translate_input(text: str, target_lang_code: str) -> str:
     """Translates the given text or email to the specified target language."""
@@ -138,14 +162,17 @@ async def query_model(request: QueryRequest):
         query_text = request.query
         lang = request.language
         mode = request.mode
+        # response = query_engine.query(query_text)
+        # response = translate_input(query_text, lang) 
+        # response = query_engine.query(query_text)
 
         # Select the appropriate query engine based on the mode
         if mode == "summarize":
-            response = summary_query_engine.query(query_text)
+            response = query_engine.query(query_text)
         elif mode == "search":
-            response = vector_query_engine.query(query_text)
+            response = query_engine.query(query_text)
         elif mode == "translate":
-            # Directly translate without querying the vector or summary tools
+        #     # Directly translate without querying the vector or summary tools
             translated_response = translate_input(query_text, lang)
             return {"response": translated_response}
         else:

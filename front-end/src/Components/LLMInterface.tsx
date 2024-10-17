@@ -2,12 +2,13 @@
 import React, { useState } from 'react';
 
 const LLNInterface = () => {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<{ sender: string; text: string }[]>(
+    [],
+  );  const [input, setInput] = useState('');
   const [language, setLanguage] = useState('en');
   const [mode, setMode] = useState('search'); // Default mode is 'search'
 
-  const fetchData = async (input, lang, mode) => {
+  const fetchData = async (input:any, lang:string, mode:string) => {
     const response = await fetch('http://127.0.0.1:8000/query', {
       method: 'POST',
       headers: {
@@ -30,6 +31,7 @@ const LLNInterface = () => {
       setInput('');
       fetchData(input, language, mode).then((responseData) => {
         setTimeout(() => {
+          console.log(responseData);
           setMessages((prevMessages) => [
             ...prevMessages,
             { sender: 'LLM', text: responseData.response },
@@ -42,7 +44,7 @@ const LLNInterface = () => {
   return (
     <div className="flex flex-col max-h-[80vh] bg-white p-4 shadow-lg rounded-lg">
       <div className="sticky top-0 bg-gradient-to-r from-pink-500 to-purple-500 p-2 text-center font-bold text-xl text-white rounded-md">
-        Genpatch AI Assistant
+         AI Assistant
       </div>
       <div className="flex-1 max-h-[80%] overflow-y-scroll bg-gray-100 p-4 shadow-md rounded-lg mb-4">
         {messages.map((msg, index) => (
