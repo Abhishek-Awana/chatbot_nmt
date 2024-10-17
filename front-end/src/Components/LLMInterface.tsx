@@ -1,11 +1,13 @@
+
 import React, { useState } from 'react';
 
 const LLNInterface = () => {
-  const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [language, setLanguage] = useState('en');
+  const [mode, setMode] = useState('search'); // Default mode is 'search'
 
-  const fetchData = async (input: string, lang: string) => {
+  const fetchData = async (input, lang, mode) => {
     const response = await fetch('http://127.0.0.1:8000/query', {
       method: 'POST',
       headers: {
@@ -14,6 +16,7 @@ const LLNInterface = () => {
       body: JSON.stringify({
         query: input,
         language: lang,
+        mode: mode,
       }),
     });
     const data = await response.json();
@@ -25,7 +28,7 @@ const LLNInterface = () => {
     if (input.trim()) {
       setMessages([...messages, { sender: 'User', text: input }]);
       setInput('');
-      fetchData(input, language).then((responseData) => {
+      fetchData(input, language, mode).then((responseData) => {
         setTimeout(() => {
           setMessages((prevMessages) => [
             ...prevMessages,
@@ -74,6 +77,16 @@ const LLNInterface = () => {
           <option value="en">English</option>
           <option value="hi">Hindi</option>
           <option value="fr">French</option>
+          <option value="es">Spanish</option>
+        </select>
+        <select
+          value={mode}
+          onChange={(e) => setMode(e.target.value)}
+          className="p-2 bg-white border border-gray-300 rounded-md mx-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          <option value="search">Search</option>
+          <option value="summarize">Summarize</option>
+          <option value="translate">Translate</option> {/* New translate option */}
         </select>
         <button
           className="p-2 bg-purple-500 text-white rounded-r-md hover:bg-purple-600"
